@@ -99,18 +99,6 @@
       ]
     }
   ],
-  "redirects": [
-    {
-      "source": "/topdesign.co.in",
-      "destination": "https://www.topdesign.co.in",
-      "permanent": true
-    },
-    {
-      "source": "/http://www.topdesign.co.in",
-      "destination": "https://www.topdesign.co.in",
-      "permanent": true
-    }
-  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 30
