@@ -2,12 +2,6 @@
   "version": 2,
   "name": "topdesign-website",
   "alias": ["www.topdesign.co.in", "topdesign.co.in"],
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
