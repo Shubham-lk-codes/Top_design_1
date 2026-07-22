@@ -55,11 +55,9 @@ app.use(compression({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging
-app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev', {
-    stream: require('fs').createWriteStream(path.join(__dirname, 'logs', 'access.log'), { flags: 'a' })
-}));
-app.use(morgan(NODE_ENV === 'development' ? 'dev' : 'tiny'));
+// Write request logs to stdout so they are captured by Vercel without
+// attempting to write to its read-only serverless filesystem.
+app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -139,21 +137,27 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
             userAgent: req.headers['user-agent']
         };
 
-        // Save to JSON file (replace with DB in production)
-        const fs = require('fs').promises;
-        const dataPath = path.join(__dirname, 'data', 'enquiries.json');
+        // Vercel Functions have a read-only project filesystem. Keep local
+        // JSON persistence for development and use email/external storage in
+        // production.
+        if (!process.env.VERCEL) {
+            const fs = require('fs').promises;
+            const dataPath = path.join(__dirname, 'data', 'enquiries.json');
 
-        let enquiries = [];
-        try {
-            const data = await fs.readFile(dataPath, 'utf8');
-            enquiries = JSON.parse(data);
-        } catch (err) {
-            // File doesn't exist yet
+            let enquiries = [];
+            try {
+                const data = await fs.readFile(dataPath, 'utf8');
+                enquiries = JSON.parse(data);
+            } catch (err) {
+                // File doesn't exist yet
+            }
+
+            enquiries.unshift(enquiry);
+            await fs.mkdir(path.dirname(dataPath), { recursive: true });
+            await fs.writeFile(dataPath, JSON.stringify(enquiries, null, 2));
+        } else {
+            console.log('New enquiry:', enquiry);
         }
-
-        enquiries.unshift(enquiry);
-        await fs.mkdir(path.dirname(dataPath), { recursive: true });
-        await fs.writeFile(dataPath, JSON.stringify(enquiries, null, 2));
 
         // Send email notification (if configured)
         if (process.env.SMTP_HOST) {
@@ -290,8 +294,9 @@ app.use((err, req, res, next) => {
 
 // ==================== START SERVER ====================
 
-app.listen(PORT, () => {
-    console.log(`
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║   TOP DESIGN SERVER                                        ║
@@ -309,7 +314,8 @@ app.listen(PORT, () => {
 ║   • Printing Services                                      ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
-    `);
-});
+        `);
+    });
+}
 
 module.exports = app;

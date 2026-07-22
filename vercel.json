@@ -1,36 +1,27 @@
 {
-  "version": 2,
-  "name": "topdesign-website",
-  "alias": ["www.topdesign.co.in", "topdesign.co.in"],
-  "routes": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "api/index.js"
+      "source": "/admin/:path*",
+      "destination": "/index.html"
     },
     {
-      "src": "/admin/(.*)",
-      "dest": "public/index.html"
+      "source": "/services/:path*",
+      "destination": "/index.html"
     },
     {
-      "src": "/services/(.*)",
-      "dest": "public/index.html"
+      "source": "/blog/:path*",
+      "destination": "/index.html"
     },
     {
-      "src": "/blog/(.*)",
-      "dest": "public/index.html"
-    },
-    {
-      "src": "/portfolio/(.*)",
-      "dest": "public/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "public/index.html"
+      "source": "/portfolio/:path*",
+      "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -47,7 +38,7 @@
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "headers": [
         {
           "key": "X-Frame-Options",
@@ -72,7 +63,7 @@
       ]
     },
     {
-      "source": "/css/(.*)",
+      "source": "/css/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -81,7 +72,7 @@
       ]
     },
     {
-      "source": "/js/(.*)",
+      "source": "/js/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -90,7 +81,7 @@
       ]
     },
     {
-      "source": "/images/(.*)",
+      "source": "/images/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -98,10 +89,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
