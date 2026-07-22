@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPortfolioFilter();
     setupPopup();
     setupServicePages();
+    setupInteractions();
 });
 
 // ==================== PARTICLES ====================
@@ -108,7 +109,7 @@ function renderServices() {
             <ul class="service-features">
                 ${service.features.map(f => `<li><i class="fas fa-check-circle"></i> ${f}</li>`).join('')}
             </ul>
-            <a href="/services/${service.id}" class="service-link" onclick="showService('${service.id}'); return false;">Learn More <i class="fas fa-arrow-right"></i></a>
+            <a href="/services/${service.id}" class="service-link" data-service-id="${service.id}">Learn More <i class="fas fa-arrow-right"></i></a>
         </div>
     `).join('');
 }
@@ -195,7 +196,7 @@ function renderTestimonials() {
     `).join('');
 
     nav.innerHTML = TESTIMONIALS_DATA.map((_, i) => `
-        <button class="slider-dot ${i === 0 ? 'active' : ''}" onclick="goToTestimonial(${i})" aria-label="Go to testimonial ${i + 1}"></button>
+        <button class="slider-dot ${i === 0 ? 'active' : ''}" type="button" data-testimonial-index="${i}" aria-label="Go to testimonial ${i + 1}"></button>
     `).join('');
 }
 
@@ -277,6 +278,39 @@ function setupPopup() {
     });
 }
 
+function setupInteractions() {
+    document.getElementById('mobileMenuButton')?.addEventListener('click', toggleMenu);
+    document.getElementById('closeEnquiryButton')?.addEventListener('click', closeEnquiry);
+    document.getElementById('enquiryForm')?.addEventListener('submit', submitEnquiry);
+
+    document.addEventListener('click', (event) => {
+        const openButton = event.target.closest('.js-open-enquiry');
+        if (openButton) {
+            event.preventDefault();
+            openEnquiry();
+            return;
+        }
+
+        const serviceLink = event.target.closest('[data-service-id]');
+        if (serviceLink) {
+            event.preventDefault();
+            showService(serviceLink.dataset.serviceId);
+            return;
+        }
+
+        const testimonialButton = event.target.closest('[data-testimonial-index]');
+        if (testimonialButton) {
+            goToTestimonial(Number(testimonialButton.dataset.testimonialIndex));
+            return;
+        }
+
+        if (event.target.closest('[data-action="home"]')) {
+            event.preventDefault();
+            showHome();
+        }
+    });
+}
+
 function openEnquiry() {
     document.getElementById('enquiryPopup')?.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -292,6 +326,9 @@ async function submitEnquiry(e) {
     const form = e.target;
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
+    const submitButton = form.querySelector('[type="submit"]');
+
+    if (submitButton) submitButton.disabled = true;
 
     try {
         const response = await fetch('/api/contact', {
@@ -300,29 +337,19 @@ async function submitEnquiry(e) {
             body: JSON.stringify(data)
         });
 
-        if (response.ok) {
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok && result.emailDelivered) {
             form.reset();
             closeEnquiry();
-            showToast('Enquiry submitted successfully! We will contact you soon.');
+            showToast('Enquiry sent successfully! We will contact you soon.');
         } else {
-            const error = await response.json();
-            showToast(error.error || 'Failed to submit. Please try again.');
+            showToast(result.error || 'Failed to send. Please try again.');
         }
     } catch (err) {
-        // Fallback: save to localStorage
-        const enquiry = {
-            id: Date.now(),
-            ...data,
-            status: 'new',
-            createdAt: new Date().toISOString()
-        };
-        const enquiries = JSON.parse(localStorage.getItem('td_enquiries') || '[]');
-        enquiries.unshift(enquiry);
-        localStorage.setItem('td_enquiries', JSON.stringify(enquiries));
-
-        form.reset();
-        closeEnquiry();
-        showToast('Enquiry saved locally. Server connection failed.');
+        showToast('Unable to send your enquiry. Check your connection and try again.');
+    } finally {
+        if (submitButton) submitButton.disabled = false;
     }
 }
 
@@ -338,7 +365,7 @@ function setupServicePages() {
                 <p>${service.desc}</p>
             </div>
             <div class="service-content">
-                <a href="#" class="back-btn" onclick="showHome(); return false;"><i class="fas fa-arrow-left"></i> Back to Home</a>
+                <a href="#home" class="back-btn" data-action="home"><i class="fas fa-arrow-left"></i> Back to Home</a>
                 <h2 style="font-size: 36px; color: var(--primary); margin-bottom: 20px;">Why Choose Our ${service.title}?</h2>
                 <p style="color: var(--text-light); line-height: 1.8; margin-bottom: 40px; font-size: 18px;">We provide top-notch ${service.title.toLowerCase()} services tailored to your specific needs and business goals.</p>
                 <div class="service-features-grid">
@@ -353,7 +380,7 @@ function setupServicePages() {
                 <div style="text-align: center; padding: 60px 0;">
                     <h2 style="font-size: 36px; color: var(--primary); margin-bottom: 20px;">Ready to Get Started?</h2>
                     <p style="color: var(--text-light); margin-bottom: 30px; font-size: 18px;">Let's discuss your ${service.title.toLowerCase()} project today.</p>
-                    <button class="btn-primary" onclick="openEnquiry()" style="font-size: 16px;"><i class="fas fa-paper-plane"></i> Get a Quote</button>
+                    <button class="btn-primary js-open-enquiry" type="button" style="font-size: 16px;"><i class="fas fa-paper-plane"></i> Get a Quote</button>
                 </div>
             </div>
         </div>

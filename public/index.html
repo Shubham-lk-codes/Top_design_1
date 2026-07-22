@@ -82,7 +82,7 @@
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
-            <a href="/" class="logo" onclick="showHome(); return false;">
+            <a href="#home" class="logo" data-action="home">
                 <div class="logo-icon">TD</div>
                 <div class="logo-text">TOP <span>DESIGN</span></div>
             </a>
@@ -94,9 +94,9 @@
                 <li><a href="#blog">Blog</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="/admin" style="opacity: 0.7; font-size: 13px;"><i class="fas fa-lock"></i> Admin</a></li>
-                <li><a href="#" class="nav-cta" onclick="openEnquiry(); return false;">Get Quote</a></li>
+                <li><a href="#contact" class="nav-cta js-open-enquiry">Get Quote</a></li>
             </ul>
-            <button class="mobile-menu-btn" onclick="toggleMenu()" aria-label="Toggle menu">
+            <button class="mobile-menu-btn" id="mobileMenuButton" type="button" aria-label="Toggle menu">
                 <i class="fas fa-bars"></i>
             </button>
         </div>
@@ -201,7 +201,7 @@
             <div class="cta-content">
                 <h2>Ready to Start Your Project?</h2>
                 <p>Let's discuss how we can help transform your business. Get a free consultation and quote today.</p>
-                <button class="btn-primary" onclick="openEnquiry()" style="font-size: 18px; padding: 18px 50px;"><i class="fas fa-paper-plane"></i> Get Free Quote</button>
+                <button class="btn-primary js-open-enquiry" type="button" style="font-size: 18px; padding: 18px 50px;"><i class="fas fa-paper-plane"></i> Get Free Quote</button>
             </div>
         </section>
 
@@ -229,7 +229,7 @@
                         <li><a href="#services"><i class="fas fa-chevron-right"></i> Services</a></li>
                         <li><a href="#portfolio"><i class="fas fa-chevron-right"></i> Portfolio</a></li>
                         <li><a href="#blog"><i class="fas fa-chevron-right"></i> Blog</a></li>
-                        <li><a href="#" onclick="openEnquiry(); return false;"><i class="fas fa-chevron-right"></i> Contact</a></li>
+                        <li><a href="#contact" class="js-open-enquiry"><i class="fas fa-chevron-right"></i> Contact</a></li>
                     </ul>
                 </div>
                 <div class="footer-column">
@@ -265,12 +265,12 @@
     <div class="popup-overlay" id="enquiryPopup">
         <div class="popup-container">
             <div class="popup-header">
-                <button class="popup-close" onclick="closeEnquiry()" aria-label="Close popup"><i class="fas fa-times"></i></button>
+                <button class="popup-close" id="closeEnquiryButton" type="button" aria-label="Close popup"><i class="fas fa-times"></i></button>
                 <h2>Get a Free Quote</h2>
                 <p>Fill in the details below and we'll get back to you within 24 hours.</p>
             </div>
             <div class="popup-body">
-                <form id="enquiryForm" onsubmit="submitEnquiry(event)">
+                <form id="enquiryForm">
                     <div class="form-row">
                         <div class="form-group"><label>Full Name *</label><input type="text" name="name" required placeholder="Enter your name"></div>
                         <div class="form-group"><label>Email Address *</label><input type="email" name="email" required placeholder="Enter your email"></div>
@@ -312,7 +312,7 @@
     </div>
 
     <!-- Floating Enquiry Button -->
-    <button class="floating-enquiry-btn" onclick="openEnquiry()" title="Get a Quote" aria-label="Open enquiry form">
+    <button class="floating-enquiry-btn js-open-enquiry" type="button" title="Get a Quote" aria-label="Open enquiry form">
         <i class="fas fa-comment-dots"></i>
     </button>
 

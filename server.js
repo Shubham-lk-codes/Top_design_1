@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const { sendEnquiryEmail } = require('./lib/mailer');
 require('dotenv').config();
 
 const app = express();
@@ -27,6 +28,8 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrcAttr: ["'none'"],
+            workerSrc: ["'self'"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
             connectSrc: ["'self'"],
@@ -78,6 +81,12 @@ const contactLimiter = rateLimit({
 
 // ==================== STATIC FILES ====================
 
+app.get('/sw.js', (req, res) => {
+    res.type('application/javascript');
+    res.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: NODE_ENV === 'production' ? '1y' : 0,
     etag: true,
@@ -100,7 +109,13 @@ app.get('/api/health', (req, res) => {
 // Contact/Enquiry form submission
 app.post('/api/contact', contactLimiter, async (req, res) => {
     try {
-        const { name, email, phone, service, budget, message } = req.body;
+        const fields = ['name', 'email', 'phone', 'service', 'budget', 'message'];
+        const requestBody = req.body || {};
+        const submitted = Object.fromEntries(fields.map(field => [
+            field,
+            typeof requestBody[field] === 'string' ? requestBody[field].trim() : ''
+        ]));
+        const { name, email, phone, service, budget, message } = submitted;
 
         // Validation
         if (!name || !email || !phone || !service || !message) {
@@ -122,6 +137,12 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Invalid phone number' });
         }
 
+        const maximumLengths = { name: 100, email: 254, phone: 30, service: 100, budget: 100, message: 5000 };
+        const oversizedField = fields.find(field => submitted[field].length > maximumLengths[field]);
+        if (oversizedField) {
+            return res.status(400).json({ error: `${oversizedField} is too long` });
+        }
+
         // Store enquiry (in production, use a database)
         const enquiry = {
             id: Date.now().toString(),
@@ -137,64 +158,44 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
             userAgent: req.headers['user-agent']
         };
 
-        // Vercel Functions have a read-only project filesystem. Keep local
-        // JSON persistence for development and use email/external storage in
-        // production.
-        if (!process.env.VERCEL) {
-            const fs = require('fs').promises;
-            const dataPath = path.join(__dirname, 'data', 'enquiries.json');
-
-            let enquiries = [];
-            try {
-                const data = await fs.readFile(dataPath, 'utf8');
-                enquiries = JSON.parse(data);
-            } catch (err) {
-                // File doesn't exist yet
-            }
-
-            enquiries.unshift(enquiry);
-            await fs.mkdir(path.dirname(dataPath), { recursive: true });
-            await fs.writeFile(dataPath, JSON.stringify(enquiries, null, 2));
-        } else {
-            console.log('New enquiry:', enquiry);
+        try {
+            await sendEnquiryEmail(enquiry);
+        } catch (error) {
+            console.error('Enquiry email delivery failed:', error.code || error.message);
+            const status = error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502;
+            return res.status(status).json({
+                error: 'We could not send your enquiry right now. Please try again or contact us by phone.'
+            });
         }
 
-        // Send email notification (if configured)
-        if (process.env.SMTP_HOST) {
-            const nodemailer = require('nodemailer');
-            const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST,
-                port: process.env.SMTP_PORT || 587,
-                secure: process.env.SMTP_SECURE === 'true',
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            });
+        // Vercel Functions have a read-only project filesystem. Locally, keep
+        // a backup after SMTP has accepted the message.
+        if (!process.env.VERCEL) {
+            try {
+                const fs = require('fs').promises;
+                const dataPath = path.join(__dirname, 'data', 'enquiries.json');
+                let enquiries = [];
 
-            await transporter.sendMail({
-                from: process.env.FROM_EMAIL || 'noreply@topdesign.co.in',
-                to: process.env.ADMIN_EMAIL || 'info@topdesign.co.in',
-                subject: `New Enquiry: ${service} from ${name}`,
-                html: `
-                    <h2>New Enquiry Received</h2>
-                    <table style="border-collapse: collapse; width: 100%;">
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Name:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${name}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Email:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${email}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Phone:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${phone}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Service:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${service}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Budget:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${budget || 'Not specified'}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Message:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${message}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Date:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${new Date().toLocaleString()}</td></tr>
-                    </table>
-                `
-            });
+                try {
+                    const data = await fs.readFile(dataPath, 'utf8');
+                    enquiries = JSON.parse(data);
+                } catch (error) {
+                    if (error.code !== 'ENOENT') throw error;
+                }
+
+                enquiries.unshift(enquiry);
+                await fs.mkdir(path.dirname(dataPath), { recursive: true });
+                await fs.writeFile(dataPath, JSON.stringify(enquiries, null, 2));
+            } catch (error) {
+                console.error('Enquiry backup failed:', error.message);
+            }
         }
 
         res.status(201).json({
             success: true,
             message: 'Enquiry submitted successfully',
-            enquiryId: enquiry.id
+            enquiryId: enquiry.id,
+            emailDelivered: true
         });
 
     } catch (error) {
